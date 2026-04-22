@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './modules/auth/auth.module';
-import { TaskModule } from './modules/task/task.module';
+import { DatabaseModule } from './database/database.module';
+import { UsersModule } from './modules/users/users.module'; // Importa el nuevo módulo
 
 @Module({
-  imports: [AuthModule, TaskModule],
+  imports: [DatabaseModule, AuthModule, UsersModule], // Agrégalo aquí
 })
 export class AppModule {}
