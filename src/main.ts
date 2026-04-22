@@ -6,20 +6,23 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  //Pipe para realizar la validacion de forma global
+  // Requisito: Validación estricta y Sanitización
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 
-  //Condiguracion de swagger
+  // Configuración de Swagger
   const config = new DocumentBuilder()
-    .setTitle('API con vulnerabilidades de seguridad')
-    .setDescription('Documentacion de la API para pruebas')
+    .setTitle('API Segura - Proyecto Final')
+    .setDescription(
+      'Documentación de la API con mejores prácticas de seguridad',
+    )
     .setVersion('1.0.0')
-    .addServer('http://localhost:3000', 'Servidor de pruebas')
-    .addServer('http://www.dominio.com', 'Servidor de producción')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -27,13 +30,6 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
 
-//! npm i mysql
-//! npm i @types/mysql
-
-//!git commit -a -m "fix: Uso de providers (pg,mysql) para coneccion a base de datos"
-
-//! npm i @nestjs/swagger
-
-//! git commit -a -m "fix: Correcion del CRUD y uso de swagger"
+// Corrección del error "no-floating-promises"
+void bootstrap();
