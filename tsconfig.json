@@ -16,7 +16,6 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    // REEMPLAZA baseUrl con esto:
     "paths": {
       "src/*": ["./src/*"]
     }
