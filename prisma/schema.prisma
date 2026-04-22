@@ -1,14 +1,47 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Gestión de Roles (RBAC) [cite: 29]
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  // Almacenaremos el HASH, nunca texto plano 
+  password  String   
+  name      String?
+  role      Role     @default(USER) // [cite: 29]
+  tasks     Task[]
+  auditLogs AuditLog[]
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  title       String   @db.VarChar(250) // Límite de 250 caracteres [instrucciones usuario]
+  description String?  @db.VarChar(500)
+  completed   Boolean  @default(false)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// Módulo de Auditoría y Logs [cite: 37, 39]
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  event     String   // Ejemplo: "LOGIN_FAILED", "TASK_DELETED"
+  severity  String   // Ejemplo: "LOW", "MEDIUM", "CRITICAL" [cite: 41]
+  details   String?  @db.Text
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
