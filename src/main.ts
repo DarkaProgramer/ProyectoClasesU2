@@ -6,7 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Requisito: Validación estricta y Sanitización
+  // Configuración del escudo de validación (ValidationPipe)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -15,21 +15,19 @@ async function bootstrap() {
     }),
   );
 
-  // Configuración de Swagger
   const config = new DocumentBuilder()
-    .setTitle('API Segura - Proyecto Final')
-    .setDescription(
-      'Documentación de la API con mejores prácticas de seguridad',
-    )
-    .setVersion('1.0.0')
+    .setTitle('Proyecto CAHD API')
+    .setDescription('Seguridad en el Desarrollo de Aplicaciones')
+    .setVersion('1.0')
     .addBearerAuth()
     .build();
-
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(3000);
 }
 
-// Corrección del error "no-floating-promises"
-void bootstrap();
+// Llamada a la función con manejo de errores para evitar el error de ESLint
+bootstrap().catch((err) => {
+  console.error('Error al iniciar la aplicación:', err);
+});

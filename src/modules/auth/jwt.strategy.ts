@@ -2,8 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { DatabaseService } from 'src/database/database.service';
+import { ConfigService } from '@nestjs/config';
 
-// Definimos la estructura del usuario para que ESLint no sospeche
 interface UserPayload {
   id: number;
   email: string;
@@ -12,15 +12,17 @@ interface UserPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly db: DatabaseService) {
+  constructor(
+    private readonly db: DatabaseService,
+    configService: ConfigService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: 'TU_CLAVE_SECRETA_SUPER_SEGURA',
+      secretOrKey: configService.get<string>('JWT_SECRET'),
     });
   }
 
-  // Validamos el payload del token
   async validate(payload: {
     sub: number;
     email: string;
@@ -33,7 +35,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token no válido o usuario inexistente');
     }
 
-    // Retornamos los datos que se inyectarán en req.user
     return {
       id: user.id,
       email: user.email,
