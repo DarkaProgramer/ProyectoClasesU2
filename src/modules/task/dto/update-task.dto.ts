@@ -1,22 +1,24 @@
-import { IsBoolean, IsNotEmpty, IsNumber, IsString, isString, MaxLength, MinLength, IsInt } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  MaxLength,
+  IsOptional,
+  IsNotEmpty,
+} from 'class-validator';
 
 export class UpdateTaskDto {
-  @IsString({message:'nombre requerido'})
+  @IsString()
   @IsNotEmpty()
-  @MinLength(3)
-  @MaxLength(100)
+  @IsOptional()
+  @MaxLength(250)
   name?: string;
 
-  @IsString({message:'nombre requerido'})
-  @IsNotEmpty()
-  @MinLength(3)
-  @MaxLength(100)
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
   description?: string;
 
-  
-  @IsNotEmpty()
   @IsBoolean()
+  @IsOptional()
   priority?: boolean;
-
-
 }

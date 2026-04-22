@@ -1,48 +1,49 @@
-import { Body, Controller, Delete, HttpException, Param, Post, Put,ParseIntPipe, HttpStatus } from '@nestjs/common';
-import { Get } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { TaskService } from './task.service';
 import { CreateTaskDto } from './dto/create.task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-@Controller('api/tasks')
-@ApiTags("Task")
+@Controller('tasks')
 export class TaskController {
-  constructor(private taskSvc: TaskService) {}
+  constructor(private readonly taskService: TaskService) {}
 
   @Get()
-  public async getTasks(): Promise<any> {
-    return this.taskSvc.getTasks();
+  async getTasks() {
+    return await this.taskService.findAll();
   }
-  
-@Get(':id')
-public async getTasksById(@Param('id', ParseIntPipe) id: number): Promise<any> {
-  const result = await this.taskSvc.getTaskById(id);
-  console.log('resultado', result);
 
-  if (result == undefined) {
-    throw new HttpException(`Tarea con ID ${id} no encontrada`, HttpStatus.NOT_FOUND);
+  @Get(':id')
+  async getTask(@Param('id', ParseIntPipe) id: number) {
+    return await this.taskService.findOne(id);
   }
-  
-  return result;
-}
 
   @Post()
-  @ApiOperation({summary: 'Inserte una tarea en la base de datos'})
-  public async insertTask(@Body() task: CreateTaskDto) {
-    const result = this.taskSvc.insert(task);
-
-    if (result == undefined)
-    return this.taskSvc.insert(task);
+  async insertTask(@Body() data: CreateTaskDto) {
+    // Nota: Aquí deberías sacar el ID del usuario del Token (JWT)
+    // Por ahora pondremos uno fijo o el que tú manejes para pruebas
+    const userId = 1;
+    return await this.taskService.create(data, userId);
   }
 
   @Put(':id')
-  public async updateTask(@Param("id") id: string, @Body() task: UpdateTaskDto): Promise<any> {  // Cambiado a async
-    return this.taskSvc.update(parseInt(id), task);
+  async updateTask(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: UpdateTaskDto,
+  ) {
+    return await this.taskService.update(id, data);
   }
 
   @Delete(':id')
-  public async deleteTask(@Param('id') id: string): Promise<any> {  // Cambiado a async
-    return this.taskSvc.delete(parseInt(id));
+  async deleteTask(@Param('id', ParseIntPipe) id: number) {
+    return await this.taskService.remove(id);
   }
 }

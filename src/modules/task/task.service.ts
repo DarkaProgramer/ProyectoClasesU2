@@ -1,41 +1,65 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { DatabaseService } from '../../database/database.service';
 import { CreateTaskDto } from './dto/create.task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 
+export interface TaskResponse {
+  id: number;
+  title: string;
+  description: string | null;
+  completed: boolean;
+  userId: number;
+  createdAt: Date;
+}
+
 @Injectable()
 export class TaskService {
+  constructor(private readonly db: DatabaseService) {}
 
-  private tasks: any[] = [];
-
-  getTasks() {
-    return this.tasks;
+  async findAll(): Promise<TaskResponse[]> {
+    return (await this.db.task.findMany()) as unknown as TaskResponse[];
   }
 
-  getTaskById(id: number) {
-    const task = this.tasks.find(t => t.id === id);
+  async findOne(id: number): Promise<TaskResponse> {
+    const task = (await this.db.task.findUnique({
+      where: { id },
+    })) as unknown as TaskResponse | null;
+
     if (!task) {
-      throw new HttpException('Tarea no encontrada', HttpStatus.NOT_FOUND);
+      throw new NotFoundException(`La tarea con ID ${id} no existe`);
     }
+
     return task;
   }
 
-  insert(task: CreateTaskDto) {
-    const newTask = { id: Date.now(), ...task };
-    this.tasks.push(newTask);
-    return newTask;
+  async create(data: CreateTaskDto, userId: number): Promise<TaskResponse> {
+    return (await this.db.task.create({
+      data: {
+        title: data.name, // Mapeamos 'name' del DTO al 'title' de la DB
+        description: data.description,
+        completed: false, // Por defecto al crear
+        userId: userId, // Usamos 'userId' como está en tu esquema
+      },
+    })) as unknown as TaskResponse;
   }
 
-  update(id: number, taskUpdate: UpdateTaskDto) {
-    const task = this.getTaskById(id);
-    Object.assign(task, taskUpdate);
-    return task;
+  async update(id: number, data: UpdateTaskDto): Promise<TaskResponse> {
+    await this.findOne(id);
+
+    // Mapeamos los campos que vienen del DTO a los de tu Prisma Schema
+    return (await this.db.task.update({
+      where: { id },
+      data: {
+        title: data.name,
+        description: data.description,
+        completed: data.priority, // Si tu DTO usa 'priority' para el estado
+      },
+    })) as unknown as TaskResponse;
   }
 
-  delete(id: number) {
-    const index = this.tasks.findIndex(t => t.id === id);
-    if (index === -1) {
-      throw new HttpException('No se puede eliminar la tarea', HttpStatus.NOT_FOUND);
-    }
-    return this.tasks.splice(index, 1)[0];
+  async remove(id: number): Promise<{ message: string }> {
+    await this.findOne(id);
+    await this.db.task.delete({ where: { id } });
+    return { message: 'Tarea eliminada correctamente' };
   }
 }

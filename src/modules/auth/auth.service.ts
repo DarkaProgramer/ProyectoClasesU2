@@ -3,7 +3,8 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { DatabaseService } from 'src/database/database.service';
+// CORRECCIÓN: Ruta relativa para evitar error MODULE_NOT_FOUND en dist
+import { DatabaseService } from '../../database/database.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
@@ -29,6 +30,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(data.password, salt);
 
     try {
+      // Usamos casteo doble para asegurar el tipo y satisfacer al linter
       const user = (await this.db.user.create({
         data: {
           email: data.email,

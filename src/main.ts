@@ -1,33 +1,52 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // Configuración del escudo de validación (ValidationPipe)
+  // 1. Prefijo global para todas las rutas
+  app.setGlobalPrefix('api');
+
+  // 2. Configuración del escudo de validación (ValidationPipe)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      // Descomenta la siguiente línea si quieres que las validaciones
+      // devuelvan errores más detallados en desarrollo
+      // disableErrorMessages: false,
     }),
   );
 
+  // 3. Habilitar CORS (Necesario para conectar con React/Frontend)
+  app.enableCors();
+
+  // 4. Configuración de Swagger
   const config = new DocumentBuilder()
     .setTitle('Proyecto CAHD API')
-    .setDescription('Seguridad en el Desarrollo de Aplicaciones')
+    .setDescription(
+      'Documentación de API - Seguridad en el Desarrollo de Aplicaciones (UTNG)',
+    )
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth() // Soporte para JWT
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
 
-  await app.listen(3000);
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document); // Cambiado a 'docs' para no chocar con el prefijo 'api'
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+
+  logger.log(`🚀 Aplicación corriendo en: http://localhost:${port}/api`);
+  logger.log(`📖 Documentación disponible en: http://localhost:${port}/docs`);
 }
 
-// Llamada a la función con manejo de errores para evitar el error de ESLint
+// Manejo de errores global para el inicio
 bootstrap().catch((err) => {
-  console.error('Error al iniciar la aplicación:', err);
+  console.error('❌ Error fatal al iniciar la aplicación:', err);
+  process.exit(1);
 });
