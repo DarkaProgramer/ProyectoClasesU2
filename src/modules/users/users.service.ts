@@ -2,86 +2,124 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Role } from '@prisma/client';
+import { RegisterDto } from '../auth/dto/register.dto';
+import { Role, User, Prisma } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 export interface UserResponse {
   id: number;
   email: string;
   name: string | null;
-  role: string;
-}
-
-interface CurrentUser {
-  id: number;
-  email: string;
-  role: string;
+  role: Role;
 }
 
 @Injectable()
 export class UsersService {
   constructor(private readonly db: DatabaseService) {}
 
-  async findAll(): Promise<UserResponse[]> {
-    return (await this.db.user.findMany({
-      select: { id: true, email: true, name: true, role: true },
-    })) as unknown as UserResponse[];
+  private mapToResponse(user: User): UserResponse {
+    return {
+      id: Number(user.id),
+      email: String(user.email),
+      name: user.name ? String(user.name) : null,
+      role: user.role,
+    };
   }
 
-  async findOne(id: number, currentUser: CurrentUser): Promise<UserResponse> {
-    if (currentUser.id !== id && currentUser.role !== 'ADMIN') {
+  async create(data: RegisterDto): Promise<UserResponse> {
+    const existingUser = await this.db.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('El correo electrónico ya está registrado');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(data.password, salt);
+
+    const newUser = await this.db.user.create({
+      data: {
+        email: data.email,
+        password: hashedPassword,
+        name: data.name,
+        role: Role.USER,
+      },
+    });
+
+    return this.mapToResponse(newUser);
+  }
+
+  async findOneByEmail(email: string): Promise<User | null> {
+    return await this.db.user.findUnique({
+      where: { email },
+    });
+  }
+
+  async findAll(): Promise<UserResponse[]> {
+    const users = await this.db.user.findMany();
+    return users.map((u) => this.mapToResponse(u));
+  }
+
+  async findOne(
+    id: number,
+    currentUser: { id: number; role: Role },
+  ): Promise<UserResponse> {
+    if (currentUser.id !== id && currentUser.role !== Role.ADMIN) {
       throw new ForbiddenException('No tienes permiso para ver este perfil');
     }
 
-    // Retorno directo con casteo doble para silenciar al linter definitivamente
-    const user = (await this.db.user.findUnique({
+    const user = await this.db.user.findUnique({
       where: { id },
-      select: { id: true, email: true, name: true, role: true },
-    })) as unknown as UserResponse | null;
+    });
 
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
-    return user;
+
+    return this.mapToResponse(user);
   }
 
   async update(
     id: number,
-    data: UpdateUserDto,
-    currentUser: CurrentUser,
+    data: UpdateUserDto & { role?: Role },
+    currentUser: { id: number; role: Role },
   ): Promise<UserResponse> {
     await this.findOne(id, currentUser);
 
-    const updateData: { email?: string; name?: string; role?: Role } = {};
+    const updateData: Prisma.UserUpdateInput = {};
     if (data.email) updateData.email = data.email;
     if (data.name) updateData.name = data.name;
-
-    const rawData = data as Record<string, unknown>;
-    if (typeof rawData.role === 'string' && currentUser.role === 'ADMIN') {
-      updateData.role = rawData.role as Role;
+    if (data.role && currentUser.role === Role.ADMIN) {
+      updateData.role = data.role;
     }
 
-    // Eliminamos la variable intermedia para evitar el error de asignación (línea 79)
-    return (await this.db.user.update({
+    const updatedUser = await this.db.user.update({
       where: { id },
       data: updateData,
-      select: { id: true, email: true, name: true, role: true },
-    })) as unknown as UserResponse;
+    });
+
+    return this.mapToResponse(updatedUser);
   }
 
   async remove(id: number): Promise<{ message: string }> {
-    // Verificamos existencia antes de borrar
-    await this.db.user
-      .findUniqueOrThrow({
-        where: { id },
-      })
-      .catch(() => {
-        throw new NotFoundException('Usuario no encontrado');
-      });
+    const user = await this.db.user.findUnique({
+      where: { id },
+    });
 
-    await this.db.user.delete({ where: { id } });
-    return { message: 'Usuario eliminado correctamente' };
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    try {
+      await this.db.user.delete({ where: { id } });
+      return { message: 'Usuario eliminado correctamente' };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
+      throw new BadRequestException(`No se pudo eliminar: ${message}`);
+    }
   }
 }
