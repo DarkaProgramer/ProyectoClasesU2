@@ -1,23 +1,28 @@
 import {
   IsString,
   IsNotEmpty,
-  IsBoolean,
-  MaxLength,
   IsOptional,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class CreateTaskDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(250) // Basado en tu Prisma Schema (@db.VarChar(250))
-  name: string;
+  activityName: string; // Coincide con tu esquema de Prisma
 
   @IsString()
   @IsOptional()
-  @MaxLength(500) // Basado en tu Prisma Schema (@db.VarChar(500))
   description?: string;
 
-  @IsBoolean()
+  @IsInt()
+  @Min(1)
+  @Max(5)
   @IsOptional()
-  priority?: boolean;
+  importance?: number;
+
+  @IsString()
+  @IsOptional()
+  status?: string; // Ejemplo: 'PENDING', 'IN_PROGRESS', 'COMPLETED'
 }

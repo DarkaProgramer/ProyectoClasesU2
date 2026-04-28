@@ -5,12 +5,15 @@ import { DatabaseModule } from '../../database/database.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
-// IMPORTACIÓN CORREGIDA: Sin el prefijo /strategies/
 import { JwtStrategy } from './jwt.strategy';
+import { UsersModule } from '../users/users.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
     DatabaseModule,
+    UsersModule,
+    AuditModule, // <--- 2. Módulo añadido aquí
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -7,41 +7,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Gestión de Roles (RBAC) [cite: 29]
-enum Role {
-  USER
-  ADMIN
+// 1. Gestión de Usuarios y Roles (RBAC) [cite: 18, 29]
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique @db.VarChar(50) 
+  description String? @db.VarChar(250)
+  users       User[]
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  // Almacenaremos el HASH, nunca texto plano 
-  password  String   
-  name      String?
-  role      Role     @default(USER) // [cite: 29]
+  id        Int        @id @default(autoincrement())
+  email     String     @unique @db.VarChar(250)
+  password  String     @db.VarChar(250) // Almacenar Hash (Argon2/BCrypt) [cite: 15]
+  name      String?    @db.VarChar(100)
+  roleId    Int        @default(1)
+  role      Role       @relation(fields: [roleId], references: [id])
   tasks     Task[]
-  auditLogs AuditLog[]
-  createdAt DateTime @default(now())
+  logs      AuditLog[] // Relación para ver qué acciones hizo el usuario 
+  createdAt DateTime   @default(now())
 }
 
+// 2. CRUD de Tareas con Seguridad [cite: 30]
 model Task {
-  id          Int      @id @default(autoincrement())
-  title       String   @db.VarChar(250) // Límite de 250 caracteres [instrucciones usuario]
-  description String?  @db.VarChar(500)
-  completed   Boolean  @default(false)
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
+  id           Int        @id @default(autoincrement())
+  activityName String     @db.VarChar(250)
+  description  String?    @db.VarChar(500)
+  importance   Int        @default(1) // 1: Baja, 2: Media, 3: Alta
+  status       String     @default("No realizada") @db.VarChar(50) 
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id])
+  logs         AuditLog[] // Permite ver el historial de cambios de esta tarea específica
+  createdAt    DateTime   @default(now())
+
+  @@index([userId])
 }
 
-// Módulo de Auditoría y Logs [cite: 37, 39]
+// 3. Módulo de Auditoría y Logs [cite: 37]
 model AuditLog {
   id        Int      @id @default(autoincrement())
-  event     String   // Ejemplo: "LOGIN_FAILED", "TASK_DELETED"
-  severity  String   // Ejemplo: "LOW", "MEDIUM", "CRITICAL" [cite: 41]
-  details   String?  @db.Text
+  event     String   @db.VarChar(250) // Ejem: "Tarea Creada", "Login Fallido" 
+  severity  String   @db.VarChar(50)  // Filtro por Severidad requerido 
+  details   String?  @db.VarChar(500)
+  
+  // Relaciones para trazabilidad total
   userId    Int?
   user      User?    @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
+  
+  taskId    Int?     // Campo opcional para vincular el log a una tarea específica
+  task      Task?    @relation(fields: [taskId], references: [id])
+  
+  createdAt DateTime @default(now()) // Filtro por fecha requerido 
+
+  @@index([userId])
+  @@index([taskId])
 }

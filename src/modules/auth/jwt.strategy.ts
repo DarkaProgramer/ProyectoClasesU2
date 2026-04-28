@@ -1,44 +1,30 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { DatabaseService } from '../../database/database.service';
+import { PassportStrategy } from '@nestjs/passport';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-interface UserPayload {
-  id: number;
+// Definimos una interfaz para el Payload para eliminar los errores de "any"
+interface JwtPayload {
+  sub: number;
   email: string;
   role: string;
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private readonly db: DatabaseService,
-    configService: ConfigService,
-  ) {
+  constructor(private configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET'),
+      secretOrKey: configService.get<string>('JWT_SECRET') || 'secretKey',
     });
   }
 
-  async validate(payload: {
-    sub: number;
-    email: string;
-  }): Promise<UserPayload> {
-    const user = (await this.db.user.findUnique({
-      where: { id: payload.sub },
-    })) as unknown as UserPayload | null;
-
-    if (!user) {
-      throw new UnauthorizedException('Token no válido o usuario inexistente');
-    }
-
+  validate(payload: JwtPayload) {
     return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
+      userId: payload.sub,
+      email: payload.email,
+      role: payload.role,
     };
   }
 }

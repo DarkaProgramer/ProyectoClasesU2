@@ -1,35 +1,27 @@
 import {
   IsEmail,
+  IsNotEmpty,
   IsString,
+  IsInt,
   MinLength,
-  MaxLength,
-  Matches,
+  IsOptional,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
 
-export class RegisterDto {
-  @ApiProperty({ example: 'claudio@utng.edu.mx' })
-  @IsEmail({}, { message: 'El correo electrónico no es válido' })
+export class CreateUserDto {
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsEmail()
+  @IsNotEmpty()
   email: string;
 
-  @ApiProperty({
-    example: 'Password123!',
-    description: '8-16 caracteres, min. 1 mayúscula y 1 número',
-  })
+  @IsNotEmpty()
   @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @MaxLength(16, {
-    message: 'La contraseña no puede exceder los 16 caracteres',
-  })
-  // Expresión regular: Al menos una mayúscula, una minúscula y un número
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
-    message:
-      'La contraseña debe contener al menos una mayúscula, una minúscula y un número',
-  })
+  @MinLength(8)
   password: string;
 
-  @ApiProperty({ example: 'Claudio Huerta' })
-  @IsString()
-  @MinLength(3, { message: 'El nombre debe tener al menos 3 caracteres' })
-  name: string;
+  @IsOptional()
+  @IsInt({ message: 'El ID del rol debe ser un número entero' }) // Validación estricta de tipo
+  roleId?: number;
 }

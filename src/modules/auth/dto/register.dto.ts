@@ -1,23 +1,26 @@
 import {
   IsEmail,
+  IsNotEmpty,
   IsString,
   MinLength,
   Matches,
-  MaxLength,
 } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail({}, { message: 'El correo electrónico no es válido' })
+  @IsNotEmpty()
   email: string;
 
   @IsString()
+  @IsNotEmpty()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
   @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-    message: 'La contraseña debe incluir mayúscula, minúscula y un número',
-  })
+    message:
+      'La contraseña es demasiado débil (debe incluir mayúsculas, números o caracteres especiales)',
+  }) // Cumple con "Validación de Fortalezas"
   password: string;
 
   @IsString()
-  @MaxLength(100)
+  @IsNotEmpty()
   name: string;
 }

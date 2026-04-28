@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
-import { TaskController } from './task.controller';
 import { TaskService } from './task.service';
-import { DatabaseModule } from '../../database/database.module'; // Ajusta la ruta si es necesario
+import { TaskController } from './task.controller';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
-  imports: [DatabaseModule], // Importante para que el servicio pueda usar la DB
+  // Importamos DatabaseModule para que TaskService pueda usar el DatabaseService (Prisma)
+  imports: [DatabaseModule],
   controllers: [TaskController],
   providers: [TaskService],
-  exports: [TaskService], // Por si otros módulos necesitan usar tareas
+  // Exportamos el servicio por si algún otro módulo (como Audit) necesita usarlo después
+  exports: [TaskService],
 })
 export class TaskModule {}

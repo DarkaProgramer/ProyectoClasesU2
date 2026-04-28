@@ -1,87 +1,61 @@
-import {
-  Injectable,
-  BadRequestException,
-  UnauthorizedException,
-} from '@nestjs/common';
-// CORRECCIÓN: Ruta relativa para evitar error MODULE_NOT_FOUND en dist
-import { DatabaseService } from '../../database/database.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import * as bcrypt from 'bcrypt';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-
-interface UserFromDb {
-  id: number;
-  email: string;
-  name: string;
-  password: string;
-  role: string;
-}
+import * as bcrypt from 'bcrypt';
+import { UsersService } from '../users/users.service';
+import { AuditService } from '../audit/audit.service';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly db: DatabaseService,
-    private readonly jwtService: JwtService,
+    private usersService: UsersService,
+    private jwtService: JwtService,
+    private auditService: AuditService, // <--- Inyectado
   ) {}
 
-  async register(data: RegisterDto) {
+  async register(dto: RegisterDto) {
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(data.password, salt);
+    const hashedPassword = await bcrypt.hash(dto.password, salt);
 
-    try {
-      // Usamos casteo doble para asegurar el tipo y satisfacer al linter
-      const user = (await this.db.user.create({
-        data: {
-          email: data.email,
-          name: data.name,
-          password: hashedPassword,
-          role: 'USER',
-        },
-      })) as unknown as UserFromDb;
+    await this.usersService.create({
+      ...dto,
+      password: hashedPassword,
+    });
 
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      };
-    } catch {
-      throw new BadRequestException(
-        'El usuario ya existe o los datos son inválidos',
-      );
-    }
+    return { message: 'Usuario registrado exitosamente' };
   }
 
-  async login(credentials: LoginDto) {
-    const user = (await this.db.user.findUnique({
-      where: { email: credentials.email },
-    })) as unknown as UserFromDb | null;
+  async login(email: string, pass: string) {
+    const user = await this.usersService.findOneByEmail(email);
 
-    if (!user) {
-      throw new UnauthorizedException('Credenciales incorrectas');
-    }
-
-    const isMatch = await bcrypt.compare(credentials.password, user.password);
-    if (!isMatch) {
-      throw new UnauthorizedException('Credenciales incorrectas');
-    }
-
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    return {
-      message: 'Login exitoso',
-      access_token: await this.jwtService.signAsync(payload),
-      user: {
-        id: user.id,
+    if (user && (await bcrypt.compare(pass, user.password))) {
+      const payload = {
+        sub: user.id,
         email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    };
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        role: user.role?.name || 'USER',
+      };
+
+      // REGISTRO DE AUDITORÍA: Login Exitoso
+      await this.auditService.create({
+        event: 'Login Exitoso',
+        severity: 'Baja',
+        userId: user.id,
+        details: `Usuario ${user.email} ha iniciado sesión.`,
+      });
+
+      return {
+        access_token: this.jwtService.sign(payload),
+      };
+    }
+
+    // REGISTRO DE AUDITORÍA: Login Fallido (Intento de acceso)
+    await this.auditService.create({
+      event: 'Login Fallido',
+      severity: 'Alta',
+      details: `Intento de acceso no autorizado para: ${email}`,
+    });
+
+    throw new UnauthorizedException('Credenciales incorrectas');
   }
 }
