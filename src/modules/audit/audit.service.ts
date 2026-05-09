@@ -1,46 +1,40 @@
-// src/modules/audit/audit.service.ts
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
-import { AuditQueryDto } from './audit-query.dto';
+import { AuditQueryDto } from './dto/audit-query.dto';
+import { CreateAuditDto } from './dto/create-audit.dto';
 
 @Injectable()
 export class AuditService {
   constructor(private prisma: DatabaseService) {}
 
-  // Método para registrar eventos
-  async create(data: {
-    event: string;
-    severity: string;
-    details?: string;
-    userId?: number;
-    taskId?: number;
-  }) {
-    // Agregamos 'await' para cumplir con la regla de ESLint
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  // Método para crear logs (Automáticos y el Protocolo Ángel)
+  async create(data: CreateAuditDto & { userId?: number }) {
     return await this.prisma.auditLog.create({
       data: {
         event: data.event,
         severity: data.severity,
         details: data.details,
-        userId: data.userId,
+        userId: data.userId, // Admin que hace la auditoría
+        targetUserId: data.targetUserId, // Usuario auditado
       },
     });
   }
 
-  // Interfaz de Consulta con filtros
+  // Consulta para el Dashboard con toda la información
   async findAll(query: AuditQueryDto) {
-    const { userId, severity, startDate, endDate } = query;
+    const { userId, severity } = query;
 
-    // Agregamos 'await' y verificamos que sea 'auditLog' (CamelCase)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     return await this.prisma.auditLog.findMany({
       where: {
-        userId: userId ? parseInt(userId) : undefined,
+        // IMPORTANTE: Cambiamos userId por targetUserId
+        // para que el admin vea a quién auditó, no solo sus propios logs.
+        targetUserId: userId ? Number(userId) : undefined,
         severity: severity || undefined,
-        createdAt: {
-          gte: startDate ? new Date(startDate) : undefined,
-          lte: endDate ? new Date(endDate) : undefined,
-        },
+      },
+      include: {
+        // Estos nombres deben coincidir con los de tu nuevo Prisma
+        user: { select: { name: true, email: true } }, // El Admin (Sujeto)
+        targetUser: { select: { name: true, email: true } }, // El Usuario (Objeto)
       },
       orderBy: { createdAt: 'desc' },
     });

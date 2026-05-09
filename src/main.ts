@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
@@ -10,14 +10,26 @@ async function bootstrap() {
   // 1. Prefijo global (IMPORTANTE: Esto afecta a todas las URLs)
   app.setGlobalPrefix('api');
 
-  // 2. Escudo de validación global
-  // Whitelist: Elimina campos que no estén en el DTO
-  // ForbidNonWhitelisted: Lanza error si envían campos extra (Punto de Seguridad)
+  // 2. Escudo de validación global con estilo de memes
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      // Personalizamos la fábrica de excepciones para que no sea técnica
+      exceptionFactory: (errors) => {
+        const messages = errors.map((err) => {
+          // Tomamos los mensajes de error de los DTOs o los genéricos
+          return Object.values(err.constraints).join(', ');
+        });
+
+        // Aquí lanzamos el error 400 (Bad Request) con tu toque personal
+        return new BadRequestException({
+          statusCode: 400,
+          message: `¡Fíjate bien, mijo! Los datos están mal: ${messages.join(' | ')}. "¡Vaya, no encuentro fallas en su lógica!"`,
+          error: 'Bad Request',
+        });
+      },
     }),
   );
 

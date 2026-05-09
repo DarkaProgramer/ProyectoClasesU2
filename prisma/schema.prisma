@@ -1,3 +1,4 @@
+// Configuración básica
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,27 +8,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. Gestión de Usuarios y Roles (RBAC) [cite: 18, 29]
+// 1. Gestión de Usuarios y Roles (RBAC)
 model Role {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique @db.VarChar(50) 
-  description String? @db.VarChar(250)
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50) 
+  description String?  @db.VarChar(250)
   users       User[]
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  email     String     @unique @db.VarChar(250)
-  password  String     @db.VarChar(250) // Almacenar Hash (Argon2/BCrypt) [cite: 15]
-  name      String?    @db.VarChar(100)
-  roleId    Int        @default(1)
-  role      Role       @relation(fields: [roleId], references: [id])
-  tasks     Task[]
-  logs      AuditLog[] // Relación para ver qué acciones hizo el usuario 
-  createdAt DateTime   @default(now())
+  id            Int        @id @default(autoincrement())
+  email         String     @unique @db.VarChar(250)
+  password      String     @db.VarChar(250) // Almacena Hash (Argon2/BCrypt)
+  name          String?    @db.VarChar(100)
+  roleId        Int        @default(1)
+  role          Role       @relation(fields: [roleId], references: [id])
+  tasks         Task[]
+  
+  // RELACIONES DE AUDITORÍA
+  // logs: Acciones que este usuario realiza (Login, crear tarea, etc.)
+  logs          AuditLog[] @relation("UserActions")
+  
+  // auditedBy: Registros de auditoría manual donde este usuario fue el "objetivo"
+  auditedBy     AuditLog[] @relation("TargetAudits")
+  
+  createdAt     DateTime   @default(now())
 }
 
-// 2. CRUD de Tareas con Seguridad [cite: 30]
+// 2. CRUD de Tareas con Seguridad
 model Task {
   id           Int        @id @default(autoincrement())
   activityName String     @db.VarChar(250)
@@ -36,28 +44,36 @@ model Task {
   status       String     @default("No realizada") @db.VarChar(50) 
   userId       Int
   user         User       @relation(fields: [userId], references: [id])
-  logs         AuditLog[] // Permite ver el historial de cambios de esta tarea específica
+  logs         AuditLog[] // Historial de cambios de esta tarea
   createdAt    DateTime   @default(now())
 
   @@index([userId])
 }
 
-// 3. Módulo de Auditoría y Logs [cite: 37]
+// 3. Módulo de Auditoría y Logs (Protocolo Ángel)
 model AuditLog {
-  id        Int      @id @default(autoincrement())
-  event     String   @db.VarChar(250) // Ejem: "Tarea Creada", "Login Fallido" 
-  severity  String   @db.VarChar(50)  // Filtro por Severidad requerido 
-  details   String?  @db.VarChar(500)
+  id          Int      @id @default(autoincrement())
+  event       String   @db.VarChar(250) // Ejem: "Tarea Creada", "MANUAL_AUDIT"
+  severity    String   @db.VarChar(50)  // "Baja", "Media", "Alta", "Crítica"
+  details     String?  @db.Text         // Cambiado a Text para descripciones largas de auditoría
+
+  // --- RELACIONES PARA TRAZABILIDAD TOTAL ---
   
-  // Relaciones para trazabilidad total
-  userId    Int?
-  user      User?    @relation(fields: [userId], references: [id])
-  
-  taskId    Int?     // Campo opcional para vincular el log a una tarea específica
-  task      Task?    @relation(fields: [taskId], references: [id])
-  
-  createdAt DateTime @default(now()) // Filtro por fecha requerido 
+  // El "Sujeto": Quién realiza la acción (Usuario o Administrador)
+  userId      Int?
+  user        User?    @relation("UserActions", fields: [userId], references: [id])
+
+  // El "Objeto": Usuario al que se le aplica la auditoría manual (Tu propuesta)
+  targetUserId Int?
+  targetUser   User?    @relation("TargetAudits", fields: [targetUserId], references: [id])
+
+  // Vinculación opcional a una tarea específica (Ya funcionaba así)
+  taskId      Int?
+  task        Task?    @relation(fields: [taskId], references: [id])
+
+  createdAt   DateTime @default(now()) 
 
   @@index([userId])
+  @@index([targetUserId])
   @@index([taskId])
 }
